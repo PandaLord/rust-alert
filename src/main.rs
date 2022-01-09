@@ -1,39 +1,53 @@
 pub mod trigger;
-pub mod data;
 pub mod alert;
-pub mod entities;
 
-use sea_orm::{DbErr, Database, ConnectionTrait, Schema, DatabaseConnection};
-use entities::*;
+
 use serde_json;
 use tokio::*;
 use chrono::prelude::*;
-use sea_orm::{entity::*, error::*, DbConn};
+use rusqlite::{params, Connection, Result};
+use alert::Alert;
 
-
-async fn create_table(db:DbConn) -> Result<DatabaseConnection, DbErr> {
-    let builder = db.get_database_backend();
-    let schema = Schema::new(builder);
-    builder.build(&schema.create_table_from_entity(Alert));
+fn open_my_db() -> Result<Connection> {
+    let path = "./my_db.db3";
+    let db = Connection::open(&path)?;
+    println!("{}", db.is_autocommit());
     Ok(db)
 }
-#[tokio::main]
-async fn main() -> Result<(), DbErr>{
-    let db = Database::connect("sqlite://base.db").await.unwrap();
-    let db = create_table(db).await.unwrap();
-    // println!("{:?}\n", &db);
 
-    let alert_data = alert::ActiveModel {
-        alert_message: Set("Test".to_owned()),
-        created_on: Set("2021".to_owned()),
-        ..Default::default()
-    };
-    let res = Alert::insert(alert_data).exec(&db).await?;
-    // let data: AlertData<&str>= AlertData::new("test");
-    println!("data: {:?}", res);
+fn main() -> Result<()> {
+    let conn: Connection = open_my_db()?;
+    conn.execute(
+        "CREATE TABLE alert (
+            id  INTEGER PRIMARY KEY,
+            message  TEXT NOT NULL,
+            created_on DATETIME
+        )",
+        []
+    )?;
+
+    let test: Alert = Alert::new(0, String::from("test"));
+
+    conn.execute("
+        INSERT INTO alert (message, created_on) 
+        VALUES (?1, ?2),
+    ", 
+    params![test.message, test.created_on])?;
+
+    let mut stmt = conn.prepare("SELECT id, message, created_on FROM alert")?;
+
+    let alert_iter = stmt.query_map([], |row| {
+        Ok(Alert {
+            id: row.get(0)?,
+            message: row.get(1)?,
+            created_on: row.get(2)?,
+        })
+    })?;
+
+    for alert in alert_iter {
+        println!("alert: {:?}", alert.unwrap());
+    }
+
     Ok(())
-    // db.insert(b"name", serde_json::to_string(&data).unwrap().as_str()).unwrap();
-    // println!("{:?}", db.get(b"name"));
-    // assert_eq!(&db.get(b"name").unwrap().unwrap(), b"jacky");
-    // println!("Hello, world!");
+
 }

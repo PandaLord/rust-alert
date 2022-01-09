@@ -1,18 +1,18 @@
-use sea_orm::entity::prelude::*;
+use serde::{Serialize, Deserialize};
 
-
-#[derive(Debug, Clone, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name="alert")]
-pub struct Model {
-    #[sea_orm(primary_key)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Alert {
     pub id: i32,
-    pub alert_message: String,
+    pub message: String,
     pub created_on: String,
 }
 
-#[derive(Copy, Debug, Clone ,EnumIter, DeriveRelation)]
-pub enum Relation {}
-
-
-
-impl ActiveModelBehavior for ActiveModel {}
+impl Alert {
+    pub fn new(id: i32, msg: String) -> Self {
+        Alert {
+            id,
+            message: msg,
+            created_on: "test".to_owned(),
+        }
+    }
+}
