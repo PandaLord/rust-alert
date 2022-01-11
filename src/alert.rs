@@ -8,9 +8,9 @@ pub struct Alert {
 }
 
 impl Alert {
-    pub fn new(id: i32, msg: String) -> Self {
+    pub fn new(msg: String) -> Self {
         Alert {
-            id,
+            id: 0,
             message: msg,
             created_on: "test".to_owned(),
         }
