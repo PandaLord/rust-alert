@@ -1,12 +1,14 @@
 pub mod trigger;
 pub mod alert;
+pub mod db;
 
-
+use db::Database;
 use serde_json;
 use tokio::*;
 use chrono::prelude::*;
 use rusqlite::{params, Connection, Result, Error, Statement};
 use fallible_iterator::FallibleIterator;
+use alert::Alert;
 
 use iced::{
     button, scrollable, slider, text_input, Button, Checkbox, Color, Column,
@@ -14,38 +16,10 @@ use iced::{
     Sandbox, Scrollable, Settings, Slider, Space, Text, TextInput,
 };
 
-// fn open_my_db() -> Result<Connection> {
-//     let path = "./my_db.db3";
-//     let db = Connection::open(&path)?;
-//     println!("open database flag: {}", db.is_autocommit());
-//     Ok(db)
-// }
-
-// fn insert_alert(conn: &Connection, alert: Alert) -> Result<()> {
-//     conn.execute("
-//         INSERT INTO alert (message, created_on) 
-//         VALUES (?1, ?2)
-//     ", 
-//     params![alert.message, alert.created_on])?;
-
-//     Ok(())
-// }
-// fn delete_alert(conn: &Connection, alert_id: i32) -> Result<()> {
-//     conn.execute("DELETE FROM alert WHERE id = ?1", params![alert_id])?;
-
-//     Ok(())
-// }
-
-// fn query_alert(conn: &Connection) -> Result<Vec<String>> {
-//     let mut stmt = conn.prepare("SELECT * FROM alert")?;
-//     let result :Result<Vec<String>> = stmt.query([])?.map(|r| r.get(1)).collect();
-    
-//     result
-// }
 
 // more a State for the whole application
-pub struct Alert {
-
+pub struct AlertState {
+    db: Database,
     alert_message: String,
     input_message: String,
     alert_state: text_input::State,
@@ -63,11 +37,11 @@ pub enum Message {
 //     dioxus::desktop::launch(app)
 // }
 
-impl Sandbox for Alert {
+impl Sandbox for AlertState {
     type Message = Message;
-
-    fn new() -> Alert {
-        Alert {
+    fn new() -> AlertState {
+        AlertState {
+            db: Default::default(),
             alert_message: String::new(),
             input_message: String::new(),
             submit_button: button::State::new(),
@@ -104,10 +78,17 @@ impl Sandbox for Alert {
     fn update(&mut self, message:Message) {
         match message {
             Message::InputChanged(value) => {
-                self.input_message = value
+                self.input_message = value;
+
             }
             Message::Submitted => {
-                self.alert_message = self.input_message.to_owned()
+                let _new_alert: Alert = Alert::new(self.input_message.clone());
+                let inser_id = self.db.insert(_new_alert);
+
+                let query = self.db.query();
+                println!("{:?}", query)
+                
+
             }
             _ => {
                 self.alert_message = "NULL".to_owned()
@@ -116,7 +97,24 @@ impl Sandbox for Alert {
     }
 }
 fn main() -> iced::Result {
-    Alert::run(Settings::default())
+    let path = "./my_db.db3";
+
+    println!("Opening Database {:?}", path);
+
+    let conn: Connection = Connection::open(path).unwrap();
+
+    let table = match conn.execute(
+        "CREATE TABLE alert (
+            id  INTEGER PRIMARY KEY,
+            message  TEXT NOT NULL,
+            created_on TEXT NOT NULL
+        )",
+        []
+    ) {
+        Ok(_) => println!("table creation succeed"),
+        Err(e) => println!("table is existed")
+    };
+    AlertState::run(Settings::default())
 }
 // fn main() -> Result<()> {
 //     let conn: Connection = open_my_db()?;
@@ -133,7 +131,7 @@ fn main() -> iced::Result {
 //         Err(e) => println!("table is existed")
 //     };
 
-//     let test: Alert = Alert::new(String::from("test"));
+//     let test: AlertState = AlertState::new(String::from("test"));
 
 //     insert_alert(&conn, test);
 //     let query = query_alert(&conn).unwrap();
@@ -142,7 +140,7 @@ fn main() -> iced::Result {
 //     // let mut stmt = conn.prepare("SELECT id, message, created_on FROM alert")?;
 
 //     // let alert_iter = stmt.query_map([], |row| {
-//     //     Ok(Alert {
+//     //     Ok(AlertState {
 //     //         id: row.get(0)?,
 //     //         message: row.get(1)?,
 //     //         created_on: row.get(2)?,

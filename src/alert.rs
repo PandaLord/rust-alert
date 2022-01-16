@@ -1,18 +1,16 @@
 use serde::{Serialize, Deserialize};
-
+use chrono::prelude::*;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Alert {
-    pub id: i32,
     pub message: String,
-    pub created_on: String,
+    pub created_on: DateTime<Local>,
 }
 
 impl Alert {
     pub fn new(msg: String) -> Self {
         Alert {
-            id: 0,
             message: msg,
-            created_on: "test".to_owned(),
+            created_on: Local::now(),
         }
     }
 }
